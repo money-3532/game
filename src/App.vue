@@ -1,304 +1,346 @@
 <template>
-  <div id="app">
-    <div class="game-wrapper" ref="gameWrapper">
-      <div class="game-header">
-        <span class="title">⚔️ 英雄对决 ⚔️</span>
-        <span class="round-indicator">🏆 三局两胜 · 第 {{ currentRound }} 局</span>
-        <span class="tips">🎮 点击底部按钮操作</span>
+  <div class="game-wrapper">
+    <div class="game-header">
+      <span class="title">⚔️ 按住移动 · 持续格斗 ⚔️</span>
+      <span class="round-indicator"
+        >🏆 第 {{ currentRound }} 局 · 比分 {{ score.p1 }} : {{ score.p2 }}</span
+      >
+      <div class="tips-mobile">
+        <span>👇 按住方向键持续移动</span><span>🛡️ 精准格挡可反伤</span>
+      </div>
+    </div>
+
+    <div class="arena-container">
+      <div class="arena-ground"></div>
+      <div class="ground-lines"></div>
+
+      <!-- 特效层 -->
+      <div class="particles-layer">
+        <span
+          v-for="p in particles"
+          :key="p.id"
+          class="particle"
+          :style="{
+            left: p.x + 'px',
+            top: p.y + 'px',
+            width: p.size + 'px',
+            height: p.size + 'px',
+            background: p.color,
+          }"
+        ></span>
+      </div>
+      <div class="damage-numbers-layer">
+        <span
+          v-for="d in damageNumbers"
+          :key="d.id"
+          class="damage-number"
+          :class="{ crit: d.isCrit }"
+          :style="{ left: d.x + 'px', top: d.y + 'px', color: d.color }"
+          >{{ d.text }}</span
+        >
+      </div>
+      <div class="special-text-layer">
+        <span
+          v-for="s in specialTexts"
+          :key="s.id"
+          class="special-text"
+          :style="{ left: s.x + 'px', top: s.y + 'px', color: s.color }"
+          >{{ s.text }}</span
+        >
       </div>
 
-      <div class="arena-container" ref="arenaContainer">
-        <div class="arena-ground"></div>
-        <div class="ground-lines"></div>
-        <div class="spotlight"></div>
-
-        <div class="particles-layer">
-          <span
-            v-for="p in particles"
-            :key="p.id"
-            class="particle"
-            :style="{
-              left: p.x + 'px',
-              top: p.y + 'px',
-              width: p.size + 'px',
-              height: p.size + 'px',
-              background: p.color,
-              '--dx': p.dx + 'px',
-              '--dy': p.dy + 'px',
-              animationDuration: p.duration + 's',
-            }"
-          ></span>
+      <!-- HUD 玩家1 -->
+      <div class="player-hud p1-hud" :style="{ left: player1.x + 'px', bottom: '180px' }">
+        <span class="hud-name">⚔️ 圣骑士</span>
+        <div class="hp-bar-outer">
+          <div
+            class="hp-bar-inner"
+            :style="{ width: (player1.hp / player1.maxHp) * 100 + '%' }"
+          ></div>
         </div>
-
-        <div class="damage-numbers-layer">
-          <span
-            v-for="d in damageNumbers"
-            :key="d.id"
-            class="damage-number"
-            :class="{ crit: d.isCrit }"
-            :style="{
-              left: d.x + 'px',
-              top: d.y + 'px',
-              color: d.color,
-            }"
-            >{{ d.text }}</span
+        <span class="hp-text">{{ Math.max(0, player1.hp) }}/{{ player1.maxHp }}</span>
+        <div class="energy-bar-outer">
+          <div
+            class="energy-bar-inner"
+            :style="{ width: (player1.energy / player1.maxEnergy) * 100 + '%' }"
+          ></div>
+        </div>
+        <div class="skill-indicators">
+          <div class="skill-icon" :class="{ ready: player1.skill1Cd <= 0 }">
+            K
+            <div
+              class="cooldown-overlay"
+              :style="{ height: (player1.skill1Cd / player1.skill1MaxCd) * 100 + '%' }"
+            ></div>
+            <span class="cd-text" v-if="player1.skill1Cd > 0">{{
+              player1.skill1Cd.toFixed(1)
+            }}</span>
+          </div>
+          <div class="skill-icon" :class="{ ready: player1.skill2Cd <= 0 }">
+            L
+            <div
+              class="cooldown-overlay"
+              :style="{ height: (player1.skill2Cd / player1.skill2MaxCd) * 100 + '%' }"
+            ></div>
+            <span class="cd-text" v-if="player1.skill2Cd > 0">{{
+              player1.skill2Cd.toFixed(1)
+            }}</span>
+          </div>
+          <div
+            class="skill-icon ultimate"
+            :class="{ ready: player1.skill3Cd <= 0 && player1.energy >= player1.skill3Cost }"
           >
+            I
+            <div
+              class="cooldown-overlay"
+              :style="{ height: (player1.skill3Cd / player1.skill3MaxCd) * 100 + '%' }"
+            ></div>
+            <span class="cd-text" v-if="player1.skill3Cd > 0">{{
+              player1.skill3Cd.toFixed(1)
+            }}</span>
+          </div>
         </div>
+      </div>
 
-        <div class="special-text-layer">
-          <span
-            v-for="s in specialTexts"
-            :key="s.id"
-            class="special-text"
-            :style="{
-              left: s.x + 'px',
-              top: s.y + 'px',
-              color: s.color,
-            }"
-            >{{ s.text }}</span
+      <!-- HUD 玩家2 -->
+      <div class="player-hud p2-hud" :style="{ left: player2.x + 'px', bottom: '180px' }">
+        <span class="hud-name">🗡️ 暗影武士</span>
+        <div class="hp-bar-outer">
+          <div
+            class="hp-bar-inner"
+            :style="{ width: (player2.hp / player2.maxHp) * 100 + '%' }"
+          ></div>
+        </div>
+        <span class="hp-text">{{ Math.max(0, player2.hp) }}/{{ player2.maxHp }}</span>
+        <div class="energy-bar-outer">
+          <div
+            class="energy-bar-inner"
+            :style="{ width: (player2.energy / player2.maxEnergy) * 100 + '%' }"
+          ></div>
+        </div>
+        <div class="skill-indicators">
+          <div class="skill-icon" :class="{ ready: player2.skill1Cd <= 0 }">
+            2
+            <div
+              class="cooldown-overlay"
+              :style="{ height: (player2.skill1Cd / player2.skill1MaxCd) * 100 + '%' }"
+            ></div>
+            <span class="cd-text" v-if="player2.skill1Cd > 0">{{
+              player2.skill1Cd.toFixed(1)
+            }}</span>
+          </div>
+          <div class="skill-icon" :class="{ ready: player2.skill2Cd <= 0 }">
+            3
+            <div
+              class="cooldown-overlay"
+              :style="{ height: (player2.skill2Cd / player2.skill2MaxCd) * 100 + '%' }"
+            ></div>
+            <span class="cd-text" v-if="player2.skill2Cd > 0">{{
+              player2.skill2Cd.toFixed(1)
+            }}</span>
+          </div>
+          <div
+            class="skill-icon ultimate"
+            :class="{ ready: player2.skill3Cd <= 0 && player2.energy >= player2.skill3Cost }"
           >
-        </div>
-
-        <div class="player-hud p1-hud" :style="{ left: player1.x - 50 + 'px', bottom: '190px' }">
-          <span class="hud-name">⚔️ 圣骑士</span>
-          <div class="hp-bar-outer">
+            4
             <div
-              class="hp-bar-inner"
-              :style="{ width: (player1.hp / player1.maxHp) * 100 + '%' }"
+              class="cooldown-overlay"
+              :style="{ height: (player2.skill3Cd / player2.skill3MaxCd) * 100 + '%' }"
             ></div>
-          </div>
-          <span class="hp-text">{{ Math.max(0, player1.hp) }} / {{ player1.maxHp }}</span>
-          <div class="energy-bar-outer">
-            <div
-              class="energy-bar-inner"
-              :style="{ width: (player1.energy / player1.maxEnergy) * 100 + '%' }"
-            ></div>
-          </div>
-          <div class="skill-indicators">
-            <div class="skill-icon" :class="{ ready: player1.skill1Cd <= 0 }">
-              1
-              <div
-                class="cooldown-overlay"
-                :style="{ height: (player1.skill1Cd / player1.skill1MaxCd) * 100 + '%' }"
-              ></div>
-              <span class="cd-text" v-if="player1.skill1Cd > 0">{{
-                player1.skill1Cd.toFixed(1)
-              }}</span>
-            </div>
-            <div class="skill-icon" :class="{ ready: player1.skill2Cd <= 0 }">
-              2
-              <div
-                class="cooldown-overlay"
-                :style="{ height: (player1.skill2Cd / player1.skill2MaxCd) * 100 + '%' }"
-              ></div>
-              <span class="cd-text" v-if="player1.skill2Cd > 0">{{
-                player1.skill2Cd.toFixed(1)
-              }}</span>
-            </div>
-            <div
-              class="skill-icon ultimate"
-              :class="{ ready: player1.skill3Cd <= 0 && player1.energy >= player1.skill3Cost }"
-            >
-              3
-              <div
-                class="cooldown-overlay"
-                :style="{ height: (player1.skill3Cd / player1.skill3MaxCd) * 100 + '%' }"
-              ></div>
-              <span class="cd-text" v-if="player1.skill3Cd > 0">{{
-                player1.skill3Cd.toFixed(1)
-              }}</span>
-            </div>
+            <span class="cd-text" v-if="player2.skill3Cd > 0">{{
+              player2.skill3Cd.toFixed(1)
+            }}</span>
           </div>
         </div>
+      </div>
 
-        <div class="player-hud p2-hud" :style="{ left: player2.x - 50 + 'px', bottom: '190px' }">
-          <span class="hud-name">🗡️ 暗影武士</span>
-          <div class="hp-bar-outer">
-            <div
-              class="hp-bar-inner"
-              :style="{ width: (player2.hp / player2.maxHp) * 100 + '%' }"
-            ></div>
-          </div>
-          <span class="hp-text">{{ Math.max(0, player2.hp) }} / {{ player2.maxHp }}</span>
-          <div class="energy-bar-outer">
-            <div
-              class="energy-bar-inner"
-              :style="{ width: (player2.energy / player2.maxEnergy) * 100 + '%' }"
-            ></div>
-          </div>
-          <div class="skill-indicators">
-            <div class="skill-icon" :class="{ ready: player2.skill1Cd <= 0 }">
-              1
-              <div
-                class="cooldown-overlay"
-                :style="{ height: (player2.skill1Cd / player2.skill1MaxCd) * 100 + '%' }"
-              ></div>
-              <span class="cd-text" v-if="player2.skill1Cd > 0">{{
-                player2.skill1Cd.toFixed(1)
-              }}</span>
-            </div>
-            <div class="skill-icon" :class="{ ready: player2.skill2Cd <= 0 }">
-              2
-              <div
-                class="cooldown-overlay"
-                :style="{ height: (player2.skill2Cd / player2.skill2MaxCd) * 100 + '%' }"
-              ></div>
-              <span class="cd-text" v-if="player2.skill2Cd > 0">{{
-                player2.skill2Cd.toFixed(1)
-              }}</span>
-            </div>
-            <div
-              class="skill-icon ultimate"
-              :class="{ ready: player2.skill3Cd <= 0 && player2.energy >= player2.skill3Cost }"
-            >
-              3
-              <div
-                class="cooldown-overlay"
-                :style="{ height: (player2.skill3Cd / player3.skill3MaxCd) * 100 + '%' }"
-              ></div>
-              <span class="cd-text" v-if="player2.skill3Cd > 0">{{
-                player2.skill3Cd.toFixed(1)
-              }}</span>
-            </div>
+      <!-- 角色实体 -->
+      <div
+        class="player-character p1"
+        :class="{
+          attacking: player1.isAttacking,
+          blocking: player1.isBlocking,
+          'perfect-block': player1.isPerfectBlock,
+          shaking: player1.isShaking,
+        }"
+        :style="{ left: player1.x - 30 + 'px' }"
+      >
+        <div class="character-sprite">
+          <div class="char-head"></div>
+          <div class="char-body"></div>
+          <div class="char-weapon"></div>
+          <div class="char-legs">
+            <div class="char-leg"></div>
+            <div class="char-leg"></div>
           </div>
         </div>
-
-        <div
-          class="player-character p1"
-          :class="{
-            attacking: player1.isAttacking,
-            blocking: player1.isBlocking && !player1.isPerfectBlock,
-            'perfect-block': player1.isPerfectBlock,
-            shaking: player1.isShaking,
-          }"
-          :style="{ left: player1.x - 30 + 'px', '--lunge-dir': '25px', '--swing-rot': '35deg' }"
-        >
-          <div class="character-sprite">
-            <div class="char-head"></div>
-            <div class="char-body"></div>
-            <div class="char-weapon"></div>
-            <div class="char-legs">
-              <div class="char-leg"></div>
-              <div class="char-leg"></div>
-            </div>
+      </div>
+      <div
+        class="player-character p2"
+        :class="{
+          attacking: player2.isAttacking,
+          blocking: player2.isBlocking,
+          'perfect-block': player2.isPerfectBlock,
+          shaking: player2.isShaking,
+        }"
+        :style="{ left: player2.x - 30 + 'px' }"
+      >
+        <div class="character-sprite">
+          <div class="char-head"></div>
+          <div class="char-body"></div>
+          <div class="char-weapon"></div>
+          <div class="char-legs">
+            <div class="char-leg"></div>
+            <div class="char-leg"></div>
           </div>
         </div>
+      </div>
 
-        <div
-          class="player-character p2"
-          :class="{
-            attacking: player2.isAttacking,
-            blocking: player2.isBlocking && !player2.isPerfectBlock,
-            'perfect-block': player2.isPerfectBlock,
-            shaking: player2.isShaking,
-          }"
-          :style="{ left: player2.x - 30 + 'px', '--lunge-dir': '-25px', '--swing-rot': '-35deg' }"
-        >
-          <div class="character-sprite">
-            <div class="char-head"></div>
-            <div class="char-body"></div>
-            <div class="char-weapon"></div>
-            <div class="char-legs">
-              <div class="char-leg"></div>
-              <div class="char-leg"></div>
-            </div>
-          </div>
+      <!-- 游戏结束遮罩 -->
+      <div class="game-over-overlay" v-if="gameOver" @click.stop>
+        <div :class="'game-over-text ' + (winner === 1 ? 'winner-p1' : 'winner-p2')">
+          {{ winner === 1 ? '🏆 圣骑士胜利！' : '🏆 暗影武士胜利！' }}
         </div>
+        <div style="color: #ccc">总比分 {{ score.p1 }} : {{ score.p2 }}</div>
+        <button class="restart-btn" @click="restartGame">⚡ 再来一局</button>
+      </div>
+    </div>
 
-        <!-- 触屏控制按钮 -->
-        <div class="touch-controls">
-          <div class="p1-controls">
-            <div class="move-row">
-              <button
-                class="touch-btn left"
-                @mousedown="p1LeftStart"
-                @mouseup="p1Stop"
-                @mouseleave="p1Stop"
-                @touchstart.prevent="p1LeftStart"
-                @touchend.prevent="p1Stop"
-              >
-                ←
-              </button>
-              <button
-                class="touch-btn block"
-                @mousedown="p1BlockStart"
-                @mouseup="p1BlockEnd"
-                @touchstart.prevent="p1BlockStart"
-                @touchend.prevent="p1BlockEnd"
-              >
-                🛡️
-              </button>
-              <button
-                class="touch-btn right"
-                @mousedown="p1RightStart"
-                @mouseup="p1Stop"
-                @mouseleave="p1Stop"
-                @touchstart.prevent="p1RightStart"
-                @touchend.prevent="p1Stop"
-              >
-                →
-              </button>
-            </div>
-            <div class="skill-row">
-              <button class="touch-btn attack" @click="p1Attack">普攻</button>
-              <button class="touch-btn skill" @click="p1Skill1">技1</button>
-              <button class="touch-btn skill" @click="p1Skill2">技2</button>
-              <button class="touch-btn ult" @click="p1Ult">大招</button>
-            </div>
-          </div>
-
-          <div class="p2-controls">
-            <div class="move-row">
-              <button
-                class="touch-btn left"
-                @mousedown="p2LeftStart"
-                @mouseup="p2Stop"
-                @mouseleave="p2Stop"
-                @touchstart.prevent="p2LeftStart"
-                @touchend.prevent="p2Stop"
-              >
-                ←
-              </button>
-              <button
-                class="touch-btn block"
-                @mousedown="p2BlockStart"
-                @mouseup="p2BlockEnd"
-                @touchstart.prevent="p2BlockStart"
-                @touchend.prevent="p2BlockEnd"
-              >
-                🛡️
-              </button>
-              <button
-                class="touch-btn right"
-                @mousedown="p2RightStart"
-                @mouseup="p2Stop"
-                @mouseleave="p2Stop"
-                @touchstart.prevent="p2RightStart"
-                @touchend.prevent="p2Stop"
-              >
-                →
-              </button>
-            </div>
-            <div class="skill-row">
-              <button class="touch-btn attack" @click="p2Attack">普攻</button>
-              <button class="touch-btn skill" @click="p2Skill1">技1</button>
-              <button class="touch-btn skill" @click="p2Skill2">技2</button>
-              <button class="touch-btn ult" @click="p2Ult">大招</button>
-            </div>
-          </div>
+    <!-- 触屏控制区：按住方向键持续移动 -->
+    <div class="touch-controls">
+      <!-- 玩家1 左侧控制区 -->
+      <div class="control-panel">
+        <div class="panel-title">🟦 圣骑士 (P1)</div>
+        <div class="move-row">
+          <button
+            class="ctrl-btn"
+            @touchstart.prevent="startMove('p1', 'left')"
+            @touchend.prevent="stopMove('p1', 'left')"
+            @touchcancel="stopMove('p1', 'left')"
+            @mousedown.prevent="startMove('p1', 'left')"
+            @mouseup="stopMove('p1', 'left')"
+            @mouseleave="stopMove('p1', 'left')"
+          >
+            ◀ 左移
+          </button>
+          <button
+            class="ctrl-btn"
+            @touchstart.prevent="startMove('p1', 'right')"
+            @touchend.prevent="stopMove('p1', 'right')"
+            @touchcancel="stopMove('p1', 'right')"
+            @mousedown.prevent="startMove('p1', 'right')"
+            @mouseup="stopMove('p1', 'right')"
+            @mouseleave="stopMove('p1', 'right')"
+          >
+            右移 ▶
+          </button>
+          <button
+            class="ctrl-btn block-btn"
+            @touchstart.prevent="startBlock('p1')"
+            @touchend.prevent="stopBlock('p1')"
+            @mouseup="stopBlock('p1')"
+            @mouseleave="stopBlock('p1')"
+          >
+            🛡️ 格挡
+          </button>
         </div>
-
-        <div class="game-over-overlay" v-if="gameOver" @click.stop>
-          <div class="game-over-text" :class="winner === 1 ? 'winner-p1' : 'winner-p2'">
-            {{ winner === 1 ? '🏆 圣骑士胜利！' : '🏆 暗影武士胜利！' }}
-          </div>
-          <div style="color: #ccc; font-size: 1em; letter-spacing: 2px">
-            {{ winner === 1 ? '玩家1' : '玩家2' }} 赢得了第 {{ currentRound }} 局
-          </div>
-          <div style="color: #ffd740; font-size: 0.9em">
-            总比分: 玩家1 {{ score.p1 }} - {{ score.p2 }} 玩家2
-          </div>
-          <button class="restart-btn" @click.stop="restartGame">🔄 再来一局</button>
+        <div class="skill-row">
+          <button
+            class="ctrl-btn attack-btn"
+            @click="doAttack('p1', 0)"
+            @touchstart.prevent="doAttack('p1', 0)"
+          >
+            ⚔️ 普攻
+          </button>
+          <button
+            class="ctrl-btn"
+            @click="doAttack('p1', 1)"
+            @touchstart.prevent="doAttack('p1', 1)"
+          >
+            ✨ 技能K
+          </button>
+          <button
+            class="ctrl-btn"
+            @click="doAttack('p1', 2)"
+            @touchstart.prevent="doAttack('p1', 2)"
+          >
+            💢 技能L
+          </button>
+          <button
+            class="ctrl-btn skill-special"
+            @click="doAttack('p1', 3)"
+            @touchstart.prevent="doAttack('p1', 3)"
+          >
+            🌪️ 必杀I
+          </button>
+        </div>
+      </div>
+      <!-- 玩家2 右侧控制区 -->
+      <div class="control-panel">
+        <div class="panel-title">🟥 暗影武士 (P2)</div>
+        <div class="move-row">
+          <button
+            class="ctrl-btn"
+            @touchstart.prevent="startMove('p2', 'left')"
+            @touchend.prevent="stopMove('p2', 'left')"
+            @touchcancel="stopMove('p2', 'left')"
+            @mousedown.prevent="startMove('p2', 'left')"
+            @mouseup="stopMove('p2', 'left')"
+            @mouseleave="stopMove('p2', 'left')"
+          >
+            ◀ 左移
+          </button>
+          <button
+            class="ctrl-btn"
+            @touchstart.prevent="startMove('p2', 'right')"
+            @touchend.prevent="stopMove('p2', 'right')"
+            @touchcancel="stopMove('p2', 'right')"
+            @mousedown.prevent="startMove('p2', 'right')"
+            @mouseup="stopMove('p2', 'right')"
+            @mouseleave="stopMove('p2', 'right')"
+          >
+            右移 ▶
+          </button>
+          <button
+            class="ctrl-btn block-btn"
+            @touchstart.prevent="startBlock('p2')"
+            @touchend.prevent="stopBlock('p2')"
+            @mouseup="stopBlock('p2')"
+            @mouseleave="stopBlock('p2')"
+          >
+            🛡️ 格挡
+          </button>
+        </div>
+        <div class="skill-row">
+          <button
+            class="ctrl-btn attack-btn"
+            @click="doAttack('p2', 0)"
+            @touchstart.prevent="doAttack('p2', 0)"
+          >
+            ⚔️ 普攻
+          </button>
+          <button
+            class="ctrl-btn"
+            @click="doAttack('p2', 1)"
+            @touchstart.prevent="doAttack('p2', 1)"
+          >
+            🌀 疾风2
+          </button>
+          <button
+            class="ctrl-btn"
+            @click="doAttack('p2', 2)"
+            @touchstart.prevent="doAttack('p2', 2)"
+          >
+            💥 裂空3
+          </button>
+          <button
+            class="ctrl-btn skill-special"
+            @click="doAttack('p2', 3)"
+            @touchstart.prevent="doAttack('p2', 3)"
+          >
+            🔥 暗影4
+          </button>
         </div>
       </div>
     </div>
@@ -306,678 +348,447 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 
-const ARENA_LEFT = 40
-const ARENA_RIGHT = 880
-const MIN_DISTANCE = 65
-const MOVE_SPEED = 320
-const ATTACK_RANGE_NORMAL = 85
-const ATTACK_RANGE_SKILL1 = 105
-const ATTACK_RANGE_SKILL2 = 130
-const ATTACK_RANGE_SKILL3 = 250
-const COMBO_TIMEOUT = 1.6
-const PERFECT_BLOCK_WINDOW = 0.28
+// ========== 平衡参数 & 场景边界 ==========
+const ARENA_LEFT = 45
+const ARENA_RIGHT = 835
+const MIN_DIST = 70
+const MOVE_SPEED = 280 // 像素/秒，按住持续移动的速度
+
+// 攻击范围
+const RANGES = { normal: 88, skill1: 110, skill2: 135, skill3: 240 }
 const CRIT_CHANCE = 0.16
-const CRIT_MULTIPLIER = 1.75
+const CRIT_MULTI = 1.6
+const DMG_NORMAL = [8, 14]
+const DMG_SKILL1 = [16, 26]
+const DMG_SKILL2 = [20, 34]
+const DMG_SKILL3 = [28, 44]
 
-const gameWrapper = ref(null)
-const arenaContainer = ref(null)
+// 响应式数据
 const gameOver = ref(false)
 const winner = ref(0)
 const currentRound = ref(1)
 const score = reactive({ p1: 0, p2: 0 })
-
-const player1 = reactive({
-  x: 200,
-  hp: 100,
-  maxHp: 100,
-  energy: 0,
-  maxEnergy: 100,
-  isAttacking: false,
-  isBlocking: false,
-  isPerfectBlock: false,
-  isShaking: false,
-  comboCount: 0,
-  lastHitTime: 0,
-  blockStartTime: 0,
-  normalCd: 0,
-  normalMaxCd: 0.45,
-  skill1Cd: 0,
-  skill1MaxCd: 3.2,
-  skill1Cost: 18,
-  skill2Cd: 0,
-  skill2MaxCd: 5.5,
-  skill2Cost: 30,
-  skill3Cd: 0,
-  skill3MaxCd: 11,
-  skill3Cost: 55,
-  moveLeft: false,
-  moveRight: false,
-  blockHeld: false,
-  stunnedUntil: 0,
-})
-
-const player2 = reactive({
-  x: 700,
-  hp: 100,
-  maxHp: 100,
-  energy: 0,
-  maxEnergy: 100,
-  isAttacking: false,
-  isBlocking: false,
-  isPerfectBlock: false,
-  isShaking: false,
-  comboCount: 0,
-  lastHitTime: 0,
-  blockStartTime: 0,
-  normalCd: 0,
-  normalMaxCd: 0.45,
-  skill1Cd: 0,
-  skill1MaxCd: 3.2,
-  skill1Cost: 18,
-  skill2Cd: 0,
-  skill2MaxCd: 5.5,
-  skill2Cost: 30,
-  skill3Cd: 0,
-  skill3MaxCd: 11,
-  skill3Cost: 55,
-  moveLeft: false,
-  moveRight: false,
-  blockHeld: false,
-  stunnedUntil: 0,
-})
-
 const particles = ref([])
 const damageNumbers = ref([])
 const specialTexts = ref([])
-let particleIdCounter = 0
-let dmgIdCounter = 0
-let specialIdCounter = 0
-let lastFrameTime = 0
-let animFrameId = null
+let pid = 0,
+  did = 0,
+  sid = 0
+
+// 移动标志 (按住持续移动)
+const moveFlags = reactive({
+  p1: { left: false, right: false },
+  p2: { left: false, right: false },
+})
+
+const createPlayer = (side) => ({
+  x: side === 'p1' ? 180 : 720,
+  hp: 100,
+  maxHp: 100,
+  energy: 0,
+  maxEnergy: 100,
+  isAttacking: false,
+  isBlocking: false,
+  isPerfectBlock: false,
+  isShaking: false,
+  comboCount: 0,
+  lastHitTime: 0,
+  blockStartTime: 0,
+  normalCd: 0,
+  normalMaxCd: 0.45,
+  skill1Cd: 0,
+  skill1MaxCd: 3.2,
+  skill1Cost: 18,
+  skill2Cd: 0,
+  skill2MaxCd: 5.5,
+  skill2Cost: 30,
+  skill3Cd: 0,
+  skill3MaxCd: 11,
+  skill3Cost: 55,
+  blockHeld: false,
+  stunnedUntil: 0,
+})
+
+const player1 = reactive(createPlayer('p1'))
+const player2 = reactive(createPlayer('p2'))
 let gameActive = true
+let lastTimestamp = 0
+let animFrame = null
 
-// 工具函数
-function clamp(val, min, max) {
-  return Math.max(min, Math.min(max, val))
-}
+const clamp = (v, min, max) => Math.min(max, Math.max(min, v))
+const distance = () => Math.abs(player1.x - player2.x)
+const isInRange = (att, def, range) => Math.abs(att.x - def.x) <= range
 
-function distanceBetween() {
-  return Math.abs(player1.x - player2.x)
-}
-
-function isInRange(attacker, defender, range) {
-  if (attacker === player1) {
-    return defender.x - attacker.x < range && defender.x - attacker.x > 0
-  } else {
-    return attacker.x - defender.x < range && attacker.x - defender.x > 0
-  }
-}
-
+// 特效函数
 function spawnParticles(x, y, count, color) {
   for (let i = 0; i < count; i++) {
-    const angle = Math.random() * Math.PI * 2
-    const speed = 40 + Math.random() * 120
+    const ang = Math.random() * Math.PI * 2
+    const spd = 30 + Math.random() * 100
     particles.value.push({
-      id: ++particleIdCounter,
+      id: ++pid,
       x,
       y,
       size: 3 + Math.random() * 7,
       color,
-      dx: Math.cos(angle) * speed,
-      dy: Math.sin(angle) * speed - 30,
-      duration: 0.4 + Math.random() * 0.5,
+      dx: Math.cos(ang) * spd,
+      dy: Math.sin(ang) * spd - 30,
     })
-  }
-  if (particles.value.length > 40) {
-    particles.value.splice(0, particles.value.length - 40)
+    if (particles.value.length > 60) particles.value.splice(0, 20)
   }
 }
 
-function spawnDamageNumber(x, y, amount, isCrit = false, isHeal = false) {
-  const color = isHeal ? '#4cff4c' : isCrit ? '#ffd740' : '#ffffff'
-  const text = isHeal ? `+${amount}` : isCrit ? `${amount} 暴击!` : `${amount}`
+function spawnDamageNumber(x, y, amt, isCrit = false, isHeal = false) {
   damageNumbers.value.push({
-    id: ++dmgIdCounter,
+    id: ++did,
     x,
-    y: y - 30,
-    text,
-    color,
+    y: y - 20,
+    text: isHeal ? `+${amt}` : isCrit ? `${amt} 暴击!` : `${amt}`,
+    color: isHeal ? '#6eff6e' : isCrit ? '#ffd966' : '#fff',
     isCrit,
   })
-  if (damageNumbers.value.length > 15) {
-    damageNumbers.value.splice(0, damageNumbers.value.length - 15)
-  }
+  if (damageNumbers.value.length > 20) damageNumbers.value.shift()
 }
 
 function spawnSpecialText(x, y, text, color) {
-  specialTexts.value.push({
-    id: ++specialIdCounter,
-    x,
-    y,
-    text,
-    color,
-  })
-  if (specialTexts.value.length > 8) {
-    specialTexts.value.splice(0, specialTexts.value.length - 8)
-  }
+  specialTexts.value.push({ id: ++sid, x, y, text, color })
+  if (specialTexts.value.length > 12) specialTexts.value.shift()
 }
 
-function cleanupEffects() {
-  const now = Date.now()
-  particles.value = particles.value.filter((p) => now - p.id < 1200)
-  damageNumbers.value = damageNumbers.value.filter((d) => now - d.id < 1500)
-  specialTexts.value = specialTexts.value.filter((s) => now - s.id < 1800)
-}
-
-function enforceMinDistance() {
-  const dist = distanceBetween()
-  if (dist < MIN_DISTANCE) {
-    const midX = (player1.x + player2.x) / 2
-    player1.x = midX - MIN_DISTANCE / 2
-    player2.x = midX + MIN_DISTANCE / 2
-    player1.x = clamp(player1.x, ARENA_LEFT, ARENA_RIGHT)
-    player2.x = clamp(player2.x, ARENA_LEFT, ARENA_RIGHT)
-  }
-}
-
-function triggerScreenShake() {
-  const el = arenaContainer.value
-  if (!el) return
-  el.style.transform = 'translateX(-6px)'
-  setTimeout(() => {
-    el.style.transform = 'translateX(5px)'
-  }, 50)
-  setTimeout(() => {
-    el.style.transform = 'translateX(-3px)'
-  }, 100)
-  setTimeout(() => {
-    el.style.transform = 'translateX(2px)'
-  }, 150)
-  setTimeout(() => {
-    el.style.transform = 'translateX(0)'
-  }, 200)
-}
-
-// 战斗逻辑
-function dealDamage(attacker, defender, baseDamage, isSkill = false, skillLevel = 0) {
-  let range = ATTACK_RANGE_NORMAL
-  if (skillLevel === 1) range = ATTACK_RANGE_SKILL1
-  if (skillLevel === 2) range = ATTACK_RANGE_SKILL2
-  if (skillLevel === 3) range = ATTACK_RANGE_SKILL3
-
-  if (!isInRange(attacker, defender, range)) {
-    spawnParticles(attacker === player1 ? attacker.x + 35 : attacker.x - 35, 110, 5, '#888888')
+// 伤害处理
+function dealDamage(att, def, baseDmg, skillLvl = 0) {
+  const nowPerf = performance.now() / 1000
+  if (def.stunnedUntil > nowPerf) return false
+  let range = RANGES.normal
+  if (skillLvl === 1) range = RANGES.skill1
+  if (skillLvl === 2) range = RANGES.skill2
+  if (skillLvl === 3) range = RANGES.skill3
+  if (!isInRange(att, def, range)) {
+    spawnParticles(att.x, 100, 4, '#aaa')
     return false
   }
 
-  const now = performance.now() / 1000
-  const blockDuration = now - defender.blockStartTime
-  const isPerfectBlock = defender.isBlocking && blockDuration < PERFECT_BLOCK_WINDOW
-
-  if (isPerfectBlock) {
-    defender.isPerfectBlock = true
+  let finalDmg = baseDmg
+  const isPerfect = def.isBlocking && nowPerf - def.blockStartTime < 0.28
+  if (isPerfect) {
+    def.isPerfectBlock = true
     setTimeout(() => {
-      defender.isPerfectBlock = false
+      if (def.isPerfectBlock) def.isPerfectBlock = false
     }, 400)
-    const reflectDmg = Math.floor(baseDamage * 0.25)
-    attacker.hp -= reflectDmg
-    attacker.isShaking = true
-    setTimeout(() => {
-      attacker.isShaking = false
-    }, 250)
-    spawnDamageNumber(attacker.x, 80, reflectDmg, false, false)
-    spawnSpecialText(defender.x, 60, '完美格挡!', '#ffffff')
-    spawnParticles(defender.x, 100, 20, '#ffffff')
-    attacker.comboCount = 0
-    attacker.lastHitTime = 0
-    return 'perfect_blocked'
+    let reflect = Math.floor(baseDmg * 0.25)
+    att.hp = Math.max(0, att.hp - reflect)
+    spawnDamageNumber(att.x, 80, reflect, false)
+    spawnSpecialText(def.x, 70, '完美格挡!', '#ffffaa')
+    spawnParticles(def.x, 100, 20, 'gold')
+    att.comboCount = 0
+    return false
   }
-
-  let finalDamage = baseDamage
-  if (defender.isBlocking && !isPerfectBlock) {
-    finalDamage = Math.floor(baseDamage * 0.4)
-    spawnSpecialText(defender.x, 60, '格挡', '#88ccff')
-    spawnParticles(defender.x, 100, 8, '#aaddff')
+  let blocked = def.isBlocking && !isPerfect
+  if (blocked) {
+    finalDmg = Math.floor(baseDmg * 0.4)
+    spawnSpecialText(def.x, 55, '格挡', '#88ccff')
   }
 
   let isCrit = false
-  if (!defender.isBlocking) {
-    if (Math.random() < CRIT_CHANCE) {
-      finalDamage = Math.floor(finalDamage * CRIT_MULTIPLIER)
-      isCrit = true
-    }
+  if (!blocked && !isPerfect && Math.random() < CRIT_CHANCE) {
+    isCrit = true
+    finalDmg = Math.floor(finalDmg * CRIT_MULTI)
   }
-
-  if (attacker.comboCount > 1 && !defender.isBlocking) {
-    const comboBonus = Math.min(attacker.comboCount * 0.04, 0.25)
-    finalDamage = Math.floor(finalDamage * (1 + comboBonus))
+  if (att.comboCount > 1 && !blocked && !isPerfect) {
+    let bonus = Math.min(att.comboCount * 0.04, 0.2)
+    finalDmg = Math.floor(finalDmg * (1 + bonus))
   }
-
-  defender.hp -= finalDamage
-  defender.isShaking = true
+  def.hp = Math.max(0, def.hp - finalDmg)
+  def.isShaking = true
   setTimeout(() => {
-    defender.isShaking = false
+    def.isShaking = false
   }, 250)
-
-  const knockback = isSkill ? (skillLevel === 3 ? 40 : skillLevel === 2 ? 20 : 10) : 4
-  if (attacker === player1) {
-    defender.x = clamp(defender.x + knockback, ARENA_LEFT, ARENA_RIGHT)
-  } else {
-    defender.x = clamp(defender.x - knockback, ARENA_LEFT, ARENA_RIGHT)
-  }
-  enforceMinDistance()
-
-  defender.energy = Math.min(defender.maxEnergy, defender.energy + Math.floor(finalDamage * 0.35))
-
-  const hitX = defender.x
-  const hitY = 95 + Math.random() * 25
-  const particleColor = isCrit ? '#ffd740' : attacker === player1 ? '#ff8888' : '#ff6666'
-  spawnParticles(hitX, hitY, isCrit ? 18 : 10, particleColor)
-  spawnDamageNumber(hitX, hitY - 10, finalDamage, isCrit)
-
-  if (isCrit) {
-    spawnSpecialText(hitX, hitY - 40, '💥暴击!', '#ffd740')
-  }
-
-  const now2 = performance.now() / 1000
-  if (now2 - attacker.lastHitTime < COMBO_TIMEOUT) {
-    attacker.comboCount++
-  } else {
-    attacker.comboCount = 1
-  }
-  attacker.lastHitTime = now2
-
-  if (attacker.comboCount >= 5) {
-    spawnSpecialText(attacker.x, 40, `${attacker.comboCount} 连击!`, '#ff9800')
-  }
-
+  let knock = skillLvl === 3 ? 24 : skillLvl === 2 ? 12 : 6
+  if (att === player1) def.x = clamp(def.x + knock, ARENA_LEFT, ARENA_RIGHT)
+  else def.x = clamp(def.x - knock, ARENA_LEFT, ARENA_RIGHT)
+  enforceMinDist()
+  def.energy = Math.min(def.maxEnergy, def.energy + Math.floor(finalDmg * 0.3))
+  spawnParticles(def.x, 90 + Math.random() * 30, isCrit ? 14 : 8, isCrit ? '#ffcc44' : '#ff8866')
+  spawnDamageNumber(def.x, 70, finalDmg, isCrit)
+  if (isCrit) spawnSpecialText(def.x, 50, '💥暴击!', '#ffaa33')
+  let now2 = performance.now() / 1000
+  if (now2 - att.lastHitTime < 1.8) att.comboCount++
+  else att.comboCount = 1
+  att.lastHitTime = now2
+  if (att.comboCount >= 4) spawnSpecialText(att.x, 40, `${att.comboCount}连击!`, '#ff9900')
   return true
 }
 
-function performAttack(attacker, defender, skillLevel = 0) {
-  const now = performance.now() / 1000
-  if (attacker.stunnedUntil > now) return
+// 强制保持最小距离
+function enforceMinDist() {
+  let d = distance()
+  if (d < MIN_DIST) {
+    let mid = (player1.x + player2.x) / 2
+    player1.x = clamp(mid - MIN_DIST / 2, ARENA_LEFT, ARENA_RIGHT)
+    player2.x = clamp(mid + MIN_DIST / 2, ARENA_LEFT, ARENA_RIGHT)
+  }
+}
 
-  let damage = 0
-  let energyGain = 0
-  let cdRef = null
-  let maxCd = 0
-  let cost = 0
-
-  if (skillLevel === 0) {
-    if (attacker.normalCd > 0) return
-    damage = 13 + Math.floor(Math.random() * 10)
-    energyGain = 14
-    cdRef = 'normalCd'
-    maxCd = attacker.normalMaxCd
+// 攻击接口
+function performAttack(att, def, skill) {
+  let now = performance.now() / 1000
+  if (att.stunnedUntil > now) return
+  let dmg = 0,
+    engGain = 0,
+    cdKey = '',
+    maxCd = 0,
     cost = 0
-  } else if (skillLevel === 1) {
-    if (attacker.skill1Cd > 0) return
-    if (attacker.energy < attacker.skill1Cost) return
-    damage = 22 + Math.floor(Math.random() * 14)
-    energyGain = 8
-    cdRef = 'skill1Cd'
-    maxCd = attacker.skill1MaxCd
-    cost = attacker.skill1Cost
-  } else if (skillLevel === 2) {
-    if (attacker.skill2Cd > 0) return
-    if (attacker.energy < attacker.skill2Cost) return
-    damage = 28 + Math.floor(Math.random() * 18)
-    energyGain = 5
-    cdRef = 'skill2Cd'
-    maxCd = attacker.skill2MaxCd
-    cost = attacker.skill2Cost
-  } else if (skillLevel === 3) {
-    if (attacker.skill3Cd > 0) return
-    if (attacker.energy < attacker.skill3Cost) return
-    damage = 38 + Math.floor(Math.random() * 25)
-    energyGain = 0
-    cdRef = 'skill3Cd'
-    maxCd = attacker.skill3MaxCd
-    cost = attacker.skill3Cost
+  if (skill === 0) {
+    if (att.normalCd > 0) return
+    dmg = DMG_NORMAL[0] + Math.floor(Math.random() * (DMG_NORMAL[1] - DMG_NORMAL[0] + 1))
+    engGain = 12
+    cdKey = 'normalCd'
+    maxCd = att.normalMaxCd
+    cost = 0
   }
-
-  attacker.energy -= cost
-  attacker[cdRef] = maxCd
-
-  attacker.isAttacking = true
+  if (skill === 1) {
+    if (att.skill1Cd > 0 || att.energy < att.skill1Cost) return
+    dmg = DMG_SKILL1[0] + Math.floor(Math.random() * (DMG_SKILL1[1] - DMG_SKILL1[0] + 1))
+    engGain = 7
+    cdKey = 'skill1Cd'
+    maxCd = att.skill1MaxCd
+    cost = att.skill1Cost
+  }
+  if (skill === 2) {
+    if (att.skill2Cd > 0 || att.energy < att.skill2Cost) return
+    dmg = DMG_SKILL2[0] + Math.floor(Math.random() * (DMG_SKILL2[1] - DMG_SKILL2[0] + 1))
+    engGain = 5
+    cdKey = 'skill2Cd'
+    maxCd = att.skill2MaxCd
+    cost = att.skill2Cost
+  }
+  if (skill === 3) {
+    if (att.skill3Cd > 0 || att.energy < att.skill3Cost) return
+    dmg = DMG_SKILL3[0] + Math.floor(Math.random() * (DMG_SKILL3[1] - DMG_SKILL3[0] + 1))
+    engGain = 0
+    cdKey = 'skill3Cd'
+    maxCd = att.skill3MaxCd
+    cost = att.skill3Cost
+  }
+  att.energy -= cost
+  att[cdKey] = maxCd
+  att.isAttacking = true
   setTimeout(() => {
-    attacker.isAttacking = false
-  }, 300)
-
-  const result = dealDamage(attacker, defender, damage, skillLevel > 0, skillLevel)
-
-  if (result === true || result === false) {
-    const actualGain = result === true ? energyGain : Math.floor(energyGain * 0.3)
-    attacker.energy = Math.min(attacker.maxEnergy, attacker.energy + actualGain)
+    att.isAttacking = false
+  }, 280)
+  let hit = dealDamage(att, def, dmg, skill)
+  if (hit !== false) {
+    att.energy = Math.min(att.maxEnergy, att.energy + engGain)
   }
-
-  if (skillLevel === 3 && result === true) {
-    defender.stunnedUntil = performance.now() / 1000 + 0.8
-    spawnSpecialText(defender.x, 50, '⚡眩晕!', '#ff6d00')
-    triggerScreenShake()
+  if (skill === 3 && hit === true) {
+    def.stunnedUntil = performance.now() / 1000 + 0.65
+    spawnSpecialText(def.x, 60, '⚡眩晕', '#ff7700')
   }
 }
 
-// 触屏按钮事件
-function p1LeftStart() {
-  player1.moveLeft = true
-}
-function p1RightStart() {
-  player1.moveRight = true
-}
-function p1Stop() {
-  player1.moveLeft = false
-  player1.moveRight = false
-}
-function p1BlockStart() {
-  player1.blockHeld = true
-  player1.blockStartTime = performance.now() / 1000
-}
-function p1BlockEnd() {
-  player1.blockHeld = false
-}
-function p1Attack() {
-  performAttack(player1, player2, 0)
-}
-function p1Skill1() {
-  performAttack(player1, player2, 1)
-}
-function p1Skill2() {
-  performAttack(player1, player2, 2)
-}
-function p1Ult() {
-  performAttack(player1, player2, 3)
+// 按住持续移动的控制方法
+function startMove(side, direction) {
+  if (side === 'p1') {
+    if (direction === 'left') moveFlags.p1.left = true
+    if (direction === 'right') moveFlags.p1.right = true
+  } else {
+    if (direction === 'left') moveFlags.p2.left = true
+    if (direction === 'right') moveFlags.p2.right = true
+  }
 }
 
-function p2LeftStart() {
-  player2.moveLeft = true
-}
-function p2RightStart() {
-  player2.moveRight = true
-}
-function p2Stop() {
-  player2.moveLeft = false
-  player2.moveRight = false
-}
-function p2BlockStart() {
-  player2.blockHeld = true
-  player2.blockStartTime = performance.now() / 1000
-}
-function p2BlockEnd() {
-  player2.blockHeld = false
-}
-function p2Attack() {
-  performAttack(player2, player1, 0)
-}
-function p2Skill1() {
-  performAttack(player2, player1, 1)
-}
-function p2Skill2() {
-  performAttack(player2, player1, 2)
-}
-function p2Ult() {
-  performAttack(player2, player1, 3)
+function stopMove(side, direction) {
+  if (side === 'p1') {
+    if (direction === 'left') moveFlags.p1.left = false
+    if (direction === 'right') moveFlags.p1.right = false
+  } else {
+    if (direction === 'left') moveFlags.p2.left = false
+    if (direction === 'right') moveFlags.p2.right = false
+  }
 }
 
-// 游戏循环
-function updatePlayer(player, opponent, dt, now) {
-  if (player.stunnedUntil > now) {
-    player.isBlocking = false
-    player.blockHeld = false
+// 格挡
+function startBlock(side) {
+  let p = side === 'p1' ? player1 : player2
+  if (p.stunnedUntil <= performance.now() / 1000) {
+    p.blockHeld = true
+    p.blockStartTime = performance.now() / 1000
+  }
+}
+
+function stopBlock(side) {
+  let p = side === 'p1' ? player1 : player2
+  p.blockHeld = false
+  p.isBlocking = false
+}
+
+function doAttack(side, skillLv) {
+  let att = side === 'p1' ? player1 : player2
+  let def = side === 'p1' ? player2 : player1
+  performAttack(att, def, skillLv)
+}
+
+// 更新移动（基于dt）
+function updateMovement(dt) {
+  if (moveFlags.p1.left) player1.x = clamp(player1.x - MOVE_SPEED * dt, ARENA_LEFT, ARENA_RIGHT)
+  if (moveFlags.p1.right) player1.x = clamp(player1.x + MOVE_SPEED * dt, ARENA_LEFT, ARENA_RIGHT)
+  if (moveFlags.p2.left) player2.x = clamp(player2.x - MOVE_SPEED * dt, ARENA_LEFT, ARENA_RIGHT)
+  if (moveFlags.p2.right) player2.x = clamp(player2.x + MOVE_SPEED * dt, ARENA_LEFT, ARENA_RIGHT)
+  enforceMinDist()
+}
+
+// 游戏主循环
+function gameLoop(ts) {
+  if (!gameActive && !gameOver.value) {
+    animFrame = requestAnimationFrame(gameLoop)
     return
   }
+  let dt = Math.min(0.033, (ts - lastTimestamp) / 1000)
+  if (dt <= 0.01) dt = 0.016
+  lastTimestamp = ts
+  const nowSec = ts / 1000
 
-  if (player.moveLeft && !player.moveRight) {
-    player.x -= MOVE_SPEED * dt
-  } else if (player.moveRight && !player.moveLeft) {
-    player.x += MOVE_SPEED * dt
-  }
-  player.x = clamp(player.x, ARENA_LEFT, ARENA_RIGHT)
+  updateMovement(dt)
 
-  player.isBlocking = player.blockHeld && player.stunnedUntil <= now
-  if (player.blockHeld && !player.isBlocking && player.stunnedUntil <= now) {
-    player.blockStartTime = now
-  }
-  if (!player.blockHeld) {
-    player.isBlocking = false
-    player.isPerfectBlock = false
-  }
-
-  if (player.normalCd > 0) player.normalCd = Math.max(0, player.normalCd - dt)
-  if (player.skill1Cd > 0) player.skill1Cd = Math.max(0, player.skill1Cd - dt)
-  if (player.skill2Cd > 0) player.skill2Cd = Math.max(0, player.skill2Cd - dt)
-  if (player.skill3Cd > 0) player.skill3Cd = Math.max(0, player.skill3Cd - dt)
-
-  player.energy = Math.min(player.maxEnergy, player.energy + 1.8 * dt)
-
-  if (player.lastHitTime > 0 && now - player.lastHitTime > COMBO_TIMEOUT) {
-    player.comboCount = 0
-  }
-}
-
-function checkGameOver() {
-  if (player1.hp <= 0 || player2.hp <= 0) {
-    gameActive = false
-    gameOver.value = true
-    if (player1.hp <= 0 && player2.hp <= 0) {
-      winner.value = player1.hp > player2.hp ? 1 : 2
-    } else if (player1.hp <= 0) {
-      winner.value = 2
-      score.p2++
-    } else {
-      winner.value = 1
-      score.p1++
+  function updateGeneric(p) {
+    if (p.stunnedUntil > nowSec) {
+      p.isBlocking = false
+      p.blockHeld = false
+      return
     }
-    player1.hp = Math.max(0, player1.hp)
-    player2.hp = Math.max(0, player2.hp)
+    let wasBlock = p.blockHeld
+    p.isBlocking = wasBlock && p.stunnedUntil <= nowSec
+    if (!p.blockHeld) {
+      p.isBlocking = false
+      p.isPerfectBlock = false
+    }
+    if (p.normalCd > 0) p.normalCd = Math.max(0, p.normalCd - dt)
+    if (p.skill1Cd > 0) p.skill1Cd = Math.max(0, p.skill1Cd - dt)
+    if (p.skill2Cd > 0) p.skill2Cd = Math.max(0, p.skill2Cd - dt)
+    if (p.skill3Cd > 0) p.skill3Cd = Math.max(0, p.skill3Cd - dt)
+    p.energy = Math.min(p.maxEnergy, p.energy + 1.8 * dt)
+    if (p.lastHitTime > 0 && nowSec - p.lastHitTime > 2.0) p.comboCount = 0
+    if (p.stunnedUntil < nowSec) p.stunnedUntil = 0
   }
-}
+  updateGeneric(player1)
+  updateGeneric(player2)
+  enforceMinDist()
 
-function gameLoop(timestamp) {
-  if (!gameActive) {
-    animFrameId = requestAnimationFrame(gameLoop)
-    return
+  if (player1.hp <= 0 || player2.hp <= 0) {
+    if (!gameOver.value) {
+      gameActive = false
+      gameOver.value = true
+      if (player1.hp <= 0 && player2.hp <= 0) winner.value = player1.hp > player2.hp ? 1 : 2
+      else winner.value = player1.hp <= 0 ? 2 : 1
+      if (winner.value === 1) score.p1++
+      else score.p2++
+    }
   }
-  if (lastFrameTime === 0) lastFrameTime = timestamp
-  let dt = (timestamp - lastFrameTime) / 1000
-  if (dt <= 0) dt = 0.016
-  if (dt > 0.1) dt = 0.1
-  lastFrameTime = timestamp
-
-  const now = timestamp / 1000
-
-  updatePlayer(player1, player2, dt, now)
-  updatePlayer(player2, player1, dt, now)
-
-  enforceMinDistance()
-  player1.x = clamp(player1.x, ARENA_LEFT, ARENA_RIGHT - MIN_DISTANCE)
-  player2.x = clamp(player2.x, ARENA_LEFT + MIN_DISTANCE, ARENA_RIGHT)
-  enforceMinDistance()
-
-  checkGameOver()
-  cleanupEffects()
-
-  animFrameId = requestAnimationFrame(gameLoop)
+  animFrame = requestAnimationFrame(gameLoop)
 }
 
 function restartGame() {
-  player1.hp = player1.maxHp
-  player2.hp = player2.maxHp
-  player1.energy = 0
-  player2.energy = 0
-  player1.x = 200
-  player2.x = 700
-  player1.normalCd = 0
-  player1.skill1Cd = 0
-  player1.skill2Cd = 0
-  player1.skill3Cd = 0
-  player2.normalCd = 0
-  player2.skill1Cd = 0
-  player2.skill2Cd = 0
-  player2.skill3Cd = 0
-  player1.comboCount = 0
-  player2.comboCount = 0
-  player1.lastHitTime = 0
-  player2.lastHitTime = 0
-  player1.isAttacking = false
-  player2.isAttacking = false
-  player1.isBlocking = false
-  player2.isBlocking = false
-  player1.isPerfectBlock = false
-  player2.isPerfectBlock = false
-  player1.isShaking = false
-  player2.isShaking = false
-  player1.blockHeld = false
-  player2.blockHeld = false
-  player1.stunnedUntil = 0
-  player2.stunnedUntil = 0
-  player1.moveLeft = false
-  player1.moveRight = false
-  player2.moveLeft = false
-  player2.moveRight = false
-  particles.value = []
-  damageNumbers.value = []
-  specialTexts.value = []
-  gameOver.value = false
-  winner.value = 0
-  gameActive = true
-  lastFrameTime = 0
-
   if (score.p1 >= 2 || score.p2 >= 2) {
     score.p1 = 0
     score.p2 = 0
     currentRound.value = 1
-  } else {
-    currentRound.value++
-  }
+  } else currentRound.value++
+  player1.hp = 100
+  player2.hp = 100
+  player1.energy = 0
+  player2.energy = 0
+  player1.x = 180
+  player2.x = 720
+  player1.normalCd = player1.skill1Cd = player1.skill2Cd = player1.skill3Cd = 0
+  player2.normalCd = player2.skill1Cd = player2.skill2Cd = player2.skill3Cd = 0
+  player1.comboCount = player2.comboCount = 0
+  player1.stunnedUntil = player2.stunnedUntil = 0
+  player1.blockHeld = player2.blockHeld = false
+  player1.isBlocking = player2.isBlocking = false
+  moveFlags.p1.left = moveFlags.p1.right = false
+  moveFlags.p2.left = moveFlags.p2.right = false
+  gameOver.value = false
+  gameActive = true
+  winner.value = 0
+  particles.value = []
+  damageNumbers.value = []
+  specialTexts.value = []
 }
 
 onMounted(() => {
-  animFrameId = requestAnimationFrame(gameLoop)
+  lastTimestamp = performance.now()
+  animFrame = requestAnimationFrame(gameLoop)
 })
 
 onUnmounted(() => {
-  if (animFrameId) cancelAnimationFrame(animFrameId)
-  gameActive = false
+  if (animFrame) cancelAnimationFrame(animFrame)
 })
 </script>
 
 <style scoped>
-:root {
-  --bg: #1a1a2e;
-  --arena: #16213e;
-  --ground: #2d2d3d;
-  --p1-color: #4da6ff;
-  --p1-glow: #2b6cb0;
-  --p2-color: #ff5252;
-  --p2-glow: #b71c1c;
-  --gold: #ffd740;
-  --text: #e0e0e0;
-  --ui-bg: rgba(0, 0, 0, 0.7);
-}
-
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-}
-
-#app {
-  width: 100%;
-  max-width: 960px;
-  padding: 10px;
-  margin: 0 auto;
-}
-
-body {
-  background: #0a0a14;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   user-select: none;
-  overflow: hidden;
-  background-image:
-    radial-gradient(ellipse at center, #1a1a35 0%, #0a0a14 70%),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(255, 255, 255, 0.008) 2px,
-      rgba(255, 255, 255, 0.008) 4px
-    );
+  -webkit-tap-highlight-color: transparent;
 }
 
 .game-wrapper {
-  position: relative;
-  background: var(--arena);
-  border-radius: 20px;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  background: #16213e;
+  border-radius: 28px;
   overflow: hidden;
   box-shadow:
-    0 0 60px rgba(30, 60, 120, 0.4),
-    0 0 120px rgba(0, 0, 0, 0.6),
-    inset 0 0 80px rgba(0, 0, 0, 0.3);
-  border: 3px solid #2a2a45;
+    0 0 50px rgba(0, 0, 0, 0.6),
+    inset 0 0 30px rgba(0, 0, 0, 0.3);
+  border: 2px solid #2a2a55;
 }
 
 .game-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 12px 24px;
-  background: rgba(0, 0, 0, 0.5);
-  border-bottom: 2px solid #2a2a45;
+  align-items: baseline;
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  border-bottom: 1px solid #ffd74055;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.game-header .title {
-  font-size: 1.4em;
+.title {
+  font-size: 1.3rem;
   font-weight: 900;
-  letter-spacing: 3px;
-  background: linear-gradient(135deg, #4da6ff, #ff5252);
+  background: linear-gradient(135deg, #4da6ff, #ff8a5c);
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
   background-clip: text;
+  color: transparent;
 }
 
-.game-header .round-indicator {
+.round-indicator {
   color: #ffd740;
-  font-weight: 700;
-  font-size: 0.95em;
-  letter-spacing: 2px;
-  animation: pulse-gold 2s infinite;
-}
-
-@keyframes pulse-gold {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-.game-header .tips {
-  color: #888;
-  font-size: 0.75em;
+  font-weight: bold;
+  font-size: 0.85rem;
   letter-spacing: 1px;
+}
+.tips-mobile {
+  color: #aaa;
+  font-size: 0.7rem;
+  display: flex;
+  gap: 12px;
 }
 
 .arena-container {
   position: relative;
   width: 100%;
-  height: 520px;
-  background:
-    radial-gradient(ellipse at 50% 70%, rgba(40, 40, 70, 0.8) 0%, transparent 60%),
-    linear-gradient(180deg, #1a1a30 0%, #1e1e38 40%, #252540 100%);
-  cursor: default;
+  height: 460px;
+  background: radial-gradient(ellipse at 50% 70%, #1e1e3a, #0f0f1f);
   overflow: hidden;
+  touch-action: none;
 }
 
 .arena-ground {
@@ -985,238 +796,33 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 80px;
-  background: linear-gradient(180deg, #3a3a50 0%, #2a2a3d 30%, #1e1e30 100%);
-  border-top: 3px solid #4a4a60;
-  box-shadow: inset 0 2px 20px rgba(0, 0, 0, 0.5);
-}
-
-.arena-ground::before {
-  content: '';
-  position: absolute;
-  top: -20px;
-  left: 0;
-  right: 0;
-  height: 20px;
-  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.03));
-  pointer-events: none;
+  height: 70px;
+  background: linear-gradient(180deg, #2f2f4a, #1a1a2c);
+  border-top: 3px solid #4a4a70;
 }
 
 .ground-lines {
   position: absolute;
-  bottom: 78px;
+  bottom: 68px;
   left: 5%;
   right: 5%;
   height: 2px;
   background: repeating-linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.15) 0px,
-    rgba(255, 255, 255, 0.15) 30px,
-    transparent 30px,
-    transparent 80px
+    rgba(255, 215, 0, 0.3) 0px,
+    rgba(255, 215, 0, 0.3) 40px,
+    transparent 40px,
+    transparent 100px
   );
-  pointer-events: none;
-}
-
-.spotlight {
-  position: absolute;
-  top: -100px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 500px;
-  height: 300px;
-  background: radial-gradient(ellipse, rgba(255, 255, 200, 0.06) 0%, transparent 70%);
-  pointer-events: none;
-  border-radius: 50%;
-}
-
-.particles-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 10;
-}
-
-.particle {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  animation: particle-fly 0.6s ease-out forwards;
-}
-
-@keyframes particle-fly {
-  0% {
-    transform: translate(0, 0) scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(var(--dx), var(--dy)) scale(0);
-    opacity: 0;
-  }
-}
-
-.damage-numbers-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 15;
-}
-
-.damage-number {
-  position: absolute;
-  font-weight: 900;
-  font-size: 1.6em;
-  pointer-events: none;
-  animation: dmg-float 1s ease-out forwards;
-  text-shadow:
-    0 0 8px currentColor,
-    0 0 16px currentColor;
-  white-space: nowrap;
-}
-
-.damage-number.crit {
-  font-size: 2.2em;
-  animation: dmg-float-crit 1s ease-out forwards;
-}
-
-.damage-number.heal {
-  color: #4cff4c !important;
-}
-
-@keyframes dmg-float {
-  0% {
-    transform: translateY(0) scale(0.5);
-    opacity: 1;
-  }
-  30% {
-    transform: translateY(-30px) scale(1.3);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(-90px) scale(0.8);
-    opacity: 0;
-  }
-}
-
-@keyframes dmg-float-crit {
-  0% {
-    transform: translateY(0) scale(0.3) rotate(-10deg);
-    opacity: 1;
-  }
-  30% {
-    transform: translateY(-35px) scale(1.6) rotate(5deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(-100px) scale(1) rotate(0);
-    opacity: 0;
-  }
-}
-
-.special-text-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 20;
-}
-
-.special-text {
-  position: absolute;
-  font-weight: 900;
-  font-size: 1.3em;
-  letter-spacing: 3px;
-  pointer-events: none;
-  animation: special-pop 1.2s ease-out forwards;
-}
-
-@keyframes special-pop {
-  0% {
-    transform: translate(-50%, -50%) scale(0.2);
-    opacity: 1;
-  }
-  40% {
-    transform: translate(-50%, -50%) scale(1.6);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1.8);
-    opacity: 0;
-  }
 }
 
 .player-character {
   position: absolute;
-  bottom: 75px;
+  bottom: 65px;
   z-index: 5;
-  transition: left 0.05s linear;
+  transition: left 0.04s ease-out;
   pointer-events: none;
-}
-
-.player-character.shaking {
-  animation: shake 0.25s ease-out;
-}
-
-@keyframes shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  20% {
-    transform: translateX(-8px);
-  }
-  40% {
-    transform: translateX(8px);
-  }
-  60% {
-    transform: translateX(-6px);
-  }
-  80% {
-    transform: translateX(4px);
-  }
-}
-
-.player-character.attacking {
-  animation: attack-lunge 0.3s ease-out;
-}
-
-@keyframes attack-lunge {
-  0% {
-    transform: translateX(0) scale(1);
-  }
-  40% {
-    transform: translateX(var(--lunge-dir, 20px)) scale(1.1);
-  }
-  100% {
-    transform: translateX(0) scale(1);
-  }
-}
-
-.player-character.blocking {
-  filter: brightness(1.3) drop-shadow(0 0 12px cyan);
-}
-
-.player-character.perfect-block {
-  filter: brightness(1.8) drop-shadow(0 0 25px #fff) drop-shadow(0 0 40px gold);
-  animation: perfect-flash 0.5s ease-out;
-}
-
-@keyframes perfect-flash {
-  0%,
-  100% {
-    filter: brightness(1.3);
-  }
-  50% {
-    filter: brightness(2.5) drop-shadow(0 0 40px #fff);
-  }
+  will-change: left;
 }
 
 .character-sprite {
@@ -1227,123 +833,104 @@ body {
   flex-direction: column;
   align-items: center;
 }
-
 .char-head {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  position: relative;
-  z-index: 2;
-  border: 3px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-
-.p1 .char-head {
-  background: linear-gradient(180deg, #6db9ff 0%, #3d8fd9 100%);
-  border-color: #7cc4ff;
-}
-
-.p2 .char-head {
-  background: linear-gradient(180deg, #ff7070 0%, #d32f2f 100%);
-  border-color: #ff8888;
-}
-
-.char-head::after {
-  content: '';
-  position: absolute;
-  top: 6px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 14px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 3px;
-}
-
-.char-body {
-  width: 44px;
+  width: 38px;
   height: 38px;
-  border-radius: 8px;
-  margin-top: -4px;
-  position: relative;
-  z-index: 1;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 240, 0.5);
+  box-shadow: 0 4px 8px black;
 }
-
+.p1 .char-head {
+  background: linear-gradient(145deg, #5fa9ff, #2f74c0);
+}
+.p2 .char-head {
+  background: linear-gradient(145deg, #ff6b6b, #c03434);
+}
+.char-body {
+  width: 46px;
+  height: 38px;
+  border-radius: 10px;
+  margin-top: -6px;
+  border: 2px solid rgba(255, 255, 200, 0.4);
+}
 .p1 .char-body {
-  background: linear-gradient(180deg, #5a9fd4 0%, #3b7db8 100%);
-  border-color: #6aafdf;
+  background: linear-gradient(145deg, #4a8ec7, #2d6290);
 }
-
 .p2 .char-body {
-  background: linear-gradient(180deg, #e05555 0%, #b52525 100%);
-  border-color: #e56565;
+  background: linear-gradient(145deg, #d94c4c, #a52929);
 }
-
 .char-weapon {
   position: absolute;
-  z-index: 3;
+  top: 30px;
+  width: 32px;
+  height: 7px;
+  background: silver;
   border-radius: 3px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-  transition: transform 0.1s;
+  box-shadow: 0 2px 5px black;
 }
-
 .p1 .char-weapon {
   right: -28px;
-  top: 30px;
-  width: 32px;
-  height: 7px;
-  background: linear-gradient(90deg, #c0c0c0, #e8e8e8, #a0a0a0);
-  border-radius: 4px 1px 1px 4px;
-  transform-origin: left center;
+  transform-origin: left;
 }
-
 .p2 .char-weapon {
   left: -28px;
-  top: 30px;
-  width: 32px;
-  height: 7px;
-  background: linear-gradient(270deg, #c0c0c0, #e8e8e8, #a0a0a0);
-  border-radius: 1px 4px 4px 1px;
-  transform-origin: right center;
+  transform-origin: right;
+}
+.char-legs {
+  display: flex;
+  gap: 8px;
+  margin-top: -4px;
+}
+.char-leg {
+  width: 16px;
+  height: 22px;
+  border-radius: 6px;
+  background: #334e68;
+}
+.p2 .char-leg {
+  background: #8b2c2c;
 }
 
 .player-character.attacking .char-weapon {
-  animation: weapon-swing 0.3s ease-out;
+  animation: swing 0.2s ease-out;
 }
-
-@keyframes weapon-swing {
+@keyframes swing {
   0% {
-    transform: rotate(0);
+    transform: rotate(0deg);
   }
   50% {
-    transform: rotate(var(--swing-rot, 30deg));
+    transform: rotate(35deg);
   }
   100% {
-    transform: rotate(0);
+    transform: rotate(0deg);
   }
 }
-
-.char-legs {
-  display: flex;
-  gap: 6px;
-  margin-top: -2px;
-  z-index: 0;
+.player-character.shaking {
+  animation: shake 0.2s ease-in-out;
 }
-
-.char-leg {
-  width: 14px;
-  height: 20px;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  75% {
+    transform: translateX(6px);
+  }
 }
-
-.p1 .char-leg {
-  background: #3b6d9e;
+.perfect-block {
+  filter: drop-shadow(0 0 12px gold) brightness(1.5);
+  animation: perfectFlash 0.4s;
 }
-.p2 .char-leg {
-  background: #9e3535;
+@keyframes perfectFlash {
+  0% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(2) drop-shadow(0 0 20px white);
+  }
 }
 
 .player-hud {
@@ -1354,238 +941,213 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  transition: left 0.05s linear;
+  width: 110px;
+  transform: translateX(-50%);
 }
 
 .hud-name {
-  font-weight: 700;
-  font-size: 0.8em;
-  letter-spacing: 2px;
-  text-shadow: 0 0 8px currentColor;
+  font-weight: bold;
+  font-size: 0.7rem;
+  letter-spacing: 1px;
+  text-shadow: 0 0 6px black;
 }
-
-.p1-hud .hud-name {
-  color: #7cc4ff;
-}
-.p2-hud .hud-name {
-  color: #ff8888;
-}
-
 .hp-bar-outer {
   width: 100px;
-  height: 10px;
-  background: #1a1a1a;
-  border-radius: 5px;
+  height: 9px;
+  background: #2a1e1e;
+  border-radius: 8px;
+  border: 1px solid #555;
   overflow: hidden;
-  border: 2px solid #444;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
-
 .hp-bar-inner {
   height: 100%;
-  border-radius: 3px;
-  transition:
-    width 0.3s ease-out,
-    background 0.3s;
-}
-
-.p1-hud .hp-bar-inner {
-  background: linear-gradient(90deg, #3a8fd4, #5db8fe);
-  box-shadow: 0 0 10px rgba(77, 166, 255, 0.6);
-}
-
-.p2-hud .hp-bar-inner {
-  background: linear-gradient(90deg, #d43a3a, #fe5d5d);
-  box-shadow: 0 0 10px rgba(255, 82, 82, 0.6);
-}
-
-.hp-text {
-  font-size: 0.7em;
-  font-weight: 700;
-  color: #ccc;
-  text-shadow: 0 0 4px #000;
-  letter-spacing: 1px;
-}
-
-.energy-bar-outer {
-  width: 80px;
-  height: 5px;
-  background: #1a1a1a;
-  border-radius: 3px;
-  overflow: hidden;
-  border: 1px solid #333;
-}
-
-.energy-bar-inner {
-  height: 100%;
-  border-radius: 2px;
+  width: 100%;
+  background: linear-gradient(90deg, #4caf50, #81c784);
   transition: width 0.2s;
-  background: linear-gradient(90deg, #b8860b, #ffd740, #ffea80);
-  box-shadow: 0 0 6px rgba(255, 215, 64, 0.5);
 }
-
+.p2-hud .hp-bar-inner {
+  background: linear-gradient(90deg, #e34d4d, #ff7b7b);
+}
+.energy-bar-outer {
+  width: 85px;
+  height: 5px;
+  background: #1f1f2e;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.energy-bar-inner {
+  background: linear-gradient(90deg, #ffb347, #ffd966);
+  height: 100%;
+  transition: width 0.2s;
+}
 .skill-indicators {
   display: flex;
   gap: 6px;
   margin-top: 2px;
 }
-
 .skill-icon {
   width: 28px;
   height: 28px;
-  border-radius: 6px;
-  background: #2a2a3a;
-  border: 2px solid #555;
-  position: relative;
+  background: #26263b;
+  border-radius: 8px;
+  border: 2px solid #6c6c8a;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 900;
-  font-size: 0.7em;
-  color: #aaa;
+  font-weight: bold;
+  font-size: 0.75rem;
+  color: #ddd;
+  position: relative;
   overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
-
 .skill-icon.ready {
-  border-color: #ffd740;
-  box-shadow: 0 0 12px rgba(255, 215, 64, 0.5);
-  animation: ready-glow 1.5s infinite;
+  border-color: #ffd966;
+  box-shadow: 0 0 12px gold;
 }
-
-@keyframes ready-glow {
-  0%,
-  100% {
-    box-shadow: 0 0 8px rgba(255, 215, 64, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 20px rgba(255, 215, 64, 0.8);
-  }
-}
-
-.skill-icon .cooldown-overlay {
+.cooldown-overlay {
   position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
   background: rgba(0, 0, 0, 0.7);
-  transition: height 0.3s linear;
-  pointer-events: none;
+  transition: height 0.2s;
 }
-
-.skill-icon .cd-text {
+.cd-text {
   position: absolute;
-  font-size: 0.65em;
-  font-weight: 700;
-  color: #fff;
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: white;
   z-index: 2;
-  pointer-events: none;
-  text-shadow: 0 0 4px #000;
 }
 
-.skill-icon.ultimate {
-  border-color: #ff6d00;
-  background: #1a0a00;
-  color: #ff9800;
-}
-
-.skill-icon.ultimate.ready {
-  border-color: #ff9800;
-  box-shadow: 0 0 20px rgba(255, 152, 0, 0.7);
-  animation: ult-glow 0.8s infinite;
-}
-
-@keyframes ult-glow {
-  0%,
-  100% {
-    box-shadow: 0 0 12px rgba(255, 152, 0, 0.5);
-  }
-  50% {
-    box-shadow:
-      0 0 28px rgba(255, 152, 0, 1),
-      0 0 50px rgba(255, 100, 0, 0.6);
-  }
-}
-
-/* 触屏按钮样式 */
 .touch-controls {
-  position: absolute;
-  bottom: 10px;
-  left: 0;
-  right: 0;
   display: flex;
   justify-content: space-between;
-  padding: 0 20px;
-  z-index: 99;
-  pointer-events: all;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(12px);
+  padding: 12px 8px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.p1-controls,
-.p2-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.control-panel {
+  flex: 1;
+  min-width: 230px;
+  background: rgba(20, 20, 40, 0.7);
+  border-radius: 28px;
+  padding: 8px 10px;
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.4);
+}
+
+.panel-title {
+  font-size: 0.7rem;
+  text-align: center;
+  margin-bottom: 8px;
+  letter-spacing: 2px;
+  color: #ffd966;
 }
 
 .move-row {
   display: flex;
-  gap: 8px;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
 }
 
-.skill-row {
-  display: flex;
-  gap: 6px;
-}
-
-.touch-btn {
-  width: 50px;
-  height: 44px;
-  border-radius: 10px;
+.ctrl-btn {
+  background: #2c2c44;
   border: none;
-  font-size: 16px;
+  color: white;
   font-weight: bold;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.6);
-  border: 2px solid #fff;
-  cursor: pointer;
-  user-select: none;
+  font-size: 1rem;
+  padding: 10px 16px;
+  border-radius: 60px;
+  box-shadow: 0 3px 0 #0a0a14;
+  transition: 0.05s linear;
   touch-action: manipulation;
+  cursor: pointer;
+  text-align: center;
+  min-width: 65px;
+  font-family: monospace;
+  letter-spacing: 1px;
 }
 
-.touch-btn:active {
-  background: #fff;
-  color: #000;
-  transform: scale(0.95);
+.ctrl-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #0a0a14;
+  background: #4a4a70;
+}
+.block-btn {
+  background: #2c5f7a;
+}
+.attack-btn {
+  background: #9e3c3c;
+}
+.skill-special {
+  background: #8b5a2b;
+  border-color: #ffaa33;
 }
 
-.p1-controls .touch-btn {
-  border-color: #4da6ff;
-  background: rgba(77, 166, 255, 0.2);
+.particles-layer,
+.damage-numbers-layer,
+.special-text-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
 }
-
-.p1-controls .touch-btn:active {
-  background: #4da6ff;
-  color: #fff;
+.damage-number {
+  position: absolute;
+  font-weight: 900;
+  font-size: 1.5rem;
+  animation: floatUp 0.8s forwards;
+  text-shadow: 0 0 8px black;
 }
-
-.p2-controls .touch-btn {
-  border-color: #ff5252;
-  background: rgba(255, 82, 82, 0.2);
+@keyframes floatUp {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-55px);
+  }
 }
-
-.p2-controls .touch-btn:active {
-  background: #ff5252;
-  color: #fff;
+.special-text {
+  position: absolute;
+  font-weight: bold;
+  font-size: 1.2rem;
+  animation: pop 0.9s forwards;
+  text-shadow: 0 0 6px cyan;
 }
-
-.touch-btn.ult {
-  border-color: #ff9800;
-  color: #ff9800;
+@keyframes pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
 }
-
-.touch-btn.ult:active {
-  background: #ff9800;
-  color: #fff;
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: fadeOut 0.6s forwards;
+}
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    transform: scale(0.5);
+  }
 }
 
 .game-over-overlay {
@@ -1594,71 +1156,42 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 0.85);
   z-index: 30;
   display: flex;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
-  gap: 16px;
-  pointer-events: all;
+  align-items: center;
+  gap: 20px;
 }
-
-.game-over-text {
-  font-size: 3em;
-  font-weight: 900;
-  letter-spacing: 4px;
-  animation: result-bounce 0.6s ease-out;
-}
-
-@keyframes result-bounce {
-  0% {
-    transform: scale(0);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.2);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-.winner-p1 {
-  color: #5db8fe;
-  text-shadow:
-    0 0 30px #4da6ff,
-    0 0 60px #2b6cb0;
-}
-
-.winner-p2 {
-  color: #fe5d5d;
-  text-shadow:
-    0 0 30px #ff5252,
-    0 0 60px #b71c1c;
-}
-
 .restart-btn {
-  padding: 12px 36px;
-  font-size: 1.1em;
-  font-weight: 700;
-  letter-spacing: 2px;
-  border: 2px solid #ffd740;
-  background: rgba(0, 0, 0, 0.6);
-  color: #ffd740;
-  border-radius: 30px;
+  background: #ffd966;
+  color: #1e1e2a;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 40px;
+  font-weight: bold;
+  font-size: 1.2rem;
   cursor: pointer;
-  pointer-events: all;
-  transition: all 0.3s;
-  text-transform: uppercase;
 }
 
-.restart-btn:hover {
-  background: #ffd740;
-  color: #000;
-  box-shadow: 0 0 30px rgba(255, 215, 64, 0.6);
-  transform: scale(1.05);
+@media (max-width: 680px) {
+  .ctrl-btn {
+    padding: 8px 12px;
+    min-width: 55px;
+    font-size: 0.85rem;
+  }
+  .skill-row .ctrl-btn {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+  .skill-icon {
+    width: 22px;
+    height: 22px;
+    font-size: 0.6rem;
+  }
+  .arena-container {
+    height: 400px;
+  }
 }
 </style>
