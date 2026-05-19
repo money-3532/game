@@ -4,7 +4,7 @@
       <div class="game-header">
         <span class="title">⚔️ 英雄对决 ⚔️</span>
         <span class="round-indicator">🏆 三局两胜 · 第 {{ currentRound }} 局</span>
-        <span class="tips">🎮 查看底部操作说明</span>
+        <span class="tips">🎮 点击底部按钮操作</span>
       </div>
 
       <div class="arena-container" ref="arenaContainer">
@@ -76,7 +76,7 @@
           </div>
           <div class="skill-indicators">
             <div class="skill-icon" :class="{ ready: player1.skill1Cd <= 0 }">
-              K
+              1
               <div
                 class="cooldown-overlay"
                 :style="{ height: (player1.skill1Cd / player1.skill1MaxCd) * 100 + '%' }"
@@ -86,10 +86,10 @@
               }}</span>
             </div>
             <div class="skill-icon" :class="{ ready: player1.skill2Cd <= 0 }">
-              L
+              2
               <div
                 class="cooldown-overlay"
-                :style="{ height: (player1.skill2Cd / player2.skill2MaxCd) * 100 + '%' }"
+                :style="{ height: (player1.skill2Cd / player1.skill2MaxCd) * 100 + '%' }"
               ></div>
               <span class="cd-text" v-if="player1.skill2Cd > 0">{{
                 player1.skill2Cd.toFixed(1)
@@ -99,7 +99,7 @@
               class="skill-icon ultimate"
               :class="{ ready: player1.skill3Cd <= 0 && player1.energy >= player1.skill3Cost }"
             >
-              I
+              3
               <div
                 class="cooldown-overlay"
                 :style="{ height: (player1.skill3Cd / player1.skill3MaxCd) * 100 + '%' }"
@@ -128,7 +128,7 @@
           </div>
           <div class="skill-indicators">
             <div class="skill-icon" :class="{ ready: player2.skill1Cd <= 0 }">
-              2
+              1
               <div
                 class="cooldown-overlay"
                 :style="{ height: (player2.skill1Cd / player2.skill1MaxCd) * 100 + '%' }"
@@ -138,7 +138,7 @@
               }}</span>
             </div>
             <div class="skill-icon" :class="{ ready: player2.skill2Cd <= 0 }">
-              3
+              2
               <div
                 class="cooldown-overlay"
                 :style="{ height: (player2.skill2Cd / player2.skill2MaxCd) * 100 + '%' }"
@@ -151,10 +151,10 @@
               class="skill-icon ultimate"
               :class="{ ready: player2.skill3Cd <= 0 && player2.energy >= player2.skill3Cost }"
             >
-              4
+              3
               <div
                 class="cooldown-overlay"
-                :style="{ height: (player2.skill3Cd / player2.skill3MaxCd) * 100 + '%' }"
+                :style="{ height: (player2.skill3Cd / player3.skill3MaxCd) * 100 + '%' }"
               ></div>
               <span class="cd-text" v-if="player2.skill3Cd > 0">{{
                 player2.skill3Cd.toFixed(1)
@@ -205,9 +205,87 @@
           </div>
         </div>
 
-        <div class="controls-hint">
-          <span>🟦 P1: A/D移动 S格挡 J普攻 K一技 L二技 I三技</span>
-          <span>🟥 P2: ←→移动 ↓格挡 1普攻 2一技 3二技 4三技</span>
+        <!-- 触屏控制按钮 -->
+        <div class="touch-controls">
+          <div class="p1-controls">
+            <div class="move-row">
+              <button
+                class="touch-btn left"
+                @mousedown="p1LeftStart"
+                @mouseup="p1Stop"
+                @mouseleave="p1Stop"
+                @touchstart.prevent="p1LeftStart"
+                @touchend.prevent="p1Stop"
+              >
+                ←
+              </button>
+              <button
+                class="touch-btn block"
+                @mousedown="p1BlockStart"
+                @mouseup="p1BlockEnd"
+                @touchstart.prevent="p1BlockStart"
+                @touchend.prevent="p1BlockEnd"
+              >
+                🛡️
+              </button>
+              <button
+                class="touch-btn right"
+                @mousedown="p1RightStart"
+                @mouseup="p1Stop"
+                @mouseleave="p1Stop"
+                @touchstart.prevent="p1RightStart"
+                @touchend.prevent="p1Stop"
+              >
+                →
+              </button>
+            </div>
+            <div class="skill-row">
+              <button class="touch-btn attack" @click="p1Attack">普攻</button>
+              <button class="touch-btn skill" @click="p1Skill1">技1</button>
+              <button class="touch-btn skill" @click="p1Skill2">技2</button>
+              <button class="touch-btn ult" @click="p1Ult">大招</button>
+            </div>
+          </div>
+
+          <div class="p2-controls">
+            <div class="move-row">
+              <button
+                class="touch-btn left"
+                @mousedown="p2LeftStart"
+                @mouseup="p2Stop"
+                @mouseleave="p2Stop"
+                @touchstart.prevent="p2LeftStart"
+                @touchend.prevent="p2Stop"
+              >
+                ←
+              </button>
+              <button
+                class="touch-btn block"
+                @mousedown="p2BlockStart"
+                @mouseup="p2BlockEnd"
+                @touchstart.prevent="p2BlockStart"
+                @touchend.prevent="p2BlockEnd"
+              >
+                🛡️
+              </button>
+              <button
+                class="touch-btn right"
+                @mousedown="p2RightStart"
+                @mouseup="p2Stop"
+                @mouseleave="p2Stop"
+                @touchstart.prevent="p2RightStart"
+                @touchend.prevent="p2Stop"
+              >
+                →
+              </button>
+            </div>
+            <div class="skill-row">
+              <button class="touch-btn attack" @click="p2Attack">普攻</button>
+              <button class="touch-btn skill" @click="p2Skill1">技1</button>
+              <button class="touch-btn skill" @click="p2Skill2">技2</button>
+              <button class="touch-btn ult" @click="p2Ult">大招</button>
+            </div>
+          </div>
         </div>
 
         <div class="game-over-overlay" v-if="gameOver" @click.stop>
@@ -320,7 +398,7 @@ let lastFrameTime = 0
 let animFrameId = null
 let gameActive = true
 
-// ====================== 工具函数（全部提前定义，不会再报错）======================
+// 工具函数
 function clamp(val, min, max) {
   return Math.max(min, Math.min(max, val))
 }
@@ -422,7 +500,7 @@ function triggerScreenShake() {
   }, 200)
 }
 
-// ====================== 核心战斗逻辑 ======================
+// 战斗逻辑
 function dealDamage(attacker, defender, baseDamage, isSkill = false, skillLevel = 0) {
   let range = ATTACK_RANGE_NORMAL
   if (skillLevel === 1) range = ATTACK_RANGE_SKILL1
@@ -583,7 +661,68 @@ function performAttack(attacker, defender, skillLevel = 0) {
   }
 }
 
-// ====================== 游戏循环 ======================
+// 触屏按钮事件
+function p1LeftStart() {
+  player1.moveLeft = true
+}
+function p1RightStart() {
+  player1.moveRight = true
+}
+function p1Stop() {
+  player1.moveLeft = false
+  player1.moveRight = false
+}
+function p1BlockStart() {
+  player1.blockHeld = true
+  player1.blockStartTime = performance.now() / 1000
+}
+function p1BlockEnd() {
+  player1.blockHeld = false
+}
+function p1Attack() {
+  performAttack(player1, player2, 0)
+}
+function p1Skill1() {
+  performAttack(player1, player2, 1)
+}
+function p1Skill2() {
+  performAttack(player1, player2, 2)
+}
+function p1Ult() {
+  performAttack(player1, player2, 3)
+}
+
+function p2LeftStart() {
+  player2.moveLeft = true
+}
+function p2RightStart() {
+  player2.moveRight = true
+}
+function p2Stop() {
+  player2.moveLeft = false
+  player2.moveRight = false
+}
+function p2BlockStart() {
+  player2.blockHeld = true
+  player2.blockStartTime = performance.now() / 1000
+}
+function p2BlockEnd() {
+  player2.blockHeld = false
+}
+function p2Attack() {
+  performAttack(player2, player1, 0)
+}
+function p2Skill1() {
+  performAttack(player2, player1, 1)
+}
+function p2Skill2() {
+  performAttack(player2, player1, 2)
+}
+function p2Ult() {
+  performAttack(player2, player1, 3)
+}
+
+// 游戏循环
 function updatePlayer(player, opponent, dt, now) {
   if (player.stunnedUntil > now) {
     player.isBlocking = false
@@ -664,7 +803,6 @@ function gameLoop(timestamp) {
   animFrameId = requestAnimationFrame(gameLoop)
 }
 
-// ====================== 重启游戏 ======================
 function restartGame() {
   player1.hp = player1.maxHp
   player2.hp = player2.maxHp
@@ -717,87 +855,11 @@ function restartGame() {
   }
 }
 
-// ====================== 键盘事件 ======================
-const handleKeyDown = (e) => {
-  if (gameOver.value) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      restartGame()
-    }
-    return
-  }
-  if (!gameActive) return
-
-  const key = e.key.toLowerCase()
-  const gameKeys = [
-    'a',
-    'd',
-    's',
-    'j',
-    'k',
-    'l',
-    'i',
-    'arrowleft',
-    'arrowright',
-    'arrowdown',
-    '1',
-    '2',
-    '3',
-    '4',
-  ]
-  if (gameKeys.includes(key)) e.preventDefault()
-
-  if (key === 'a') player1.moveLeft = true
-  if (key === 'd') player1.moveRight = true
-  if (key === 's') {
-    player1.blockHeld = true
-    if (!player1.isBlocking) player1.blockStartTime = performance.now() / 1000
-  }
-  if (key === 'j') performAttack(player1, player2, 0)
-  if (key === 'k') performAttack(player1, player2, 1)
-  if (key === 'l') performAttack(player1, player2, 2)
-  if (key === 'i') performAttack(player1, player2, 3)
-
-  if (key === 'arrowleft') player2.moveLeft = true
-  if (key === 'arrowright') player2.moveRight = true
-  if (key === 'arrowdown') {
-    player2.blockHeld = true
-    if (!player2.isBlocking) player2.blockStartTime = performance.now() / 1000
-  }
-  if (key === '1') performAttack(player2, player1, 0)
-  if (key === '2') performAttack(player2, player1, 1)
-  if (key === '3') performAttack(player2, player1, 2)
-  if (key === '4') performAttack(player2, player1, 3)
-}
-
-const handleKeyUp = (e) => {
-  const key = e.key.toLowerCase()
-  const gameKeys = ['a', 'd', 's', 'arrowleft', 'arrowright', 'arrowdown']
-  if (gameKeys.includes(key)) e.preventDefault()
-
-  if (key === 'a') player1.moveLeft = false
-  if (key === 'd') player1.moveRight = false
-  if (key === 's') {
-    player1.blockHeld = false
-    player1.isBlocking = false
-  }
-  if (key === 'arrowleft') player2.moveLeft = false
-  if (key === 'arrowright') player2.moveRight = false
-  if (key === 'arrowdown') {
-    player2.blockHeld = false
-    player2.isBlocking = false
-  }
-}
-
-// ====================== 生命周期 ======================
 onMounted(() => {
-  window.addEventListener('keydown', handleKeyDown)
-  window.addEventListener('keyup', handleKeyUp)
   animFrameId = requestAnimationFrame(gameLoop)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeyDown)
-  window.removeEventListener('keyup', handleKeyUp)
   if (animFrameId) cancelAnimationFrame(animFrameId)
   gameActive = false
 })
@@ -1052,7 +1114,7 @@ body {
     opacity: 1;
   }
   100% {
-    transform: translateY(-100px) scale(1) rotate(0deg);
+    transform: translateY(-100px) scale(1) rotate(0);
     opacity: 0;
   }
 }
@@ -1445,21 +1507,85 @@ body {
   }
 }
 
-.controls-hint {
+/* 触屏按钮样式 */
+.touch-controls {
   position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 25;
+  bottom: 10px;
+  left: 0;
+  right: 0;
   display: flex;
-  gap: 30px;
-  pointer-events: none;
-  font-size: 0.7em;
-  color: rgba(255, 255, 255, 0.5);
-  letter-spacing: 1px;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 6px 16px;
-  border-radius: 20px;
+  justify-content: space-between;
+  padding: 0 20px;
+  z-index: 99;
+  pointer-events: all;
+}
+
+.p1-controls,
+.p2-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.move-row {
+  display: flex;
+  gap: 8px;
+}
+
+.skill-row {
+  display: flex;
+  gap: 6px;
+}
+
+.touch-btn {
+  width: 50px;
+  height: 44px;
+  border-radius: 10px;
+  border: none;
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid #fff;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.touch-btn:active {
+  background: #fff;
+  color: #000;
+  transform: scale(0.95);
+}
+
+.p1-controls .touch-btn {
+  border-color: #4da6ff;
+  background: rgba(77, 166, 255, 0.2);
+}
+
+.p1-controls .touch-btn:active {
+  background: #4da6ff;
+  color: #fff;
+}
+
+.p2-controls .touch-btn {
+  border-color: #ff5252;
+  background: rgba(255, 82, 82, 0.2);
+}
+
+.p2-controls .touch-btn:active {
+  background: #ff5252;
+  color: #fff;
+}
+
+.touch-btn.ult {
+  border-color: #ff9800;
+  color: #ff9800;
+}
+
+.touch-btn.ult:active {
+  background: #ff9800;
+  color: #fff;
 }
 
 .game-over-overlay {
@@ -1534,52 +1660,5 @@ body {
   color: #000;
   box-shadow: 0 0 30px rgba(255, 215, 64, 0.6);
   transform: scale(1.05);
-}
-
-@media (max-width: 700px) {
-  .arena-container {
-    height: 400px;
-  }
-  .player-character {
-    bottom: 55px;
-  }
-  .char-head {
-    width: 28px;
-    height: 28px;
-  }
-  .char-body {
-    width: 34px;
-    height: 28px;
-  }
-  .char-leg {
-    width: 10px;
-    height: 14px;
-  }
-  .char-weapon {
-    width: 22px;
-    height: 5px;
-  }
-  .p1 .char-weapon {
-    right: -20px;
-    top: 22px;
-  }
-  .p2 .char-weapon {
-    left: -20px;
-    top: 22px;
-  }
-  .hp-bar-outer {
-    width: 70px;
-    height: 8px;
-  }
-  .skill-icon {
-    width: 22px;
-    height: 22px;
-    font-size: 0.6em;
-  }
-  .controls-hint {
-    font-size: 0.6em;
-    gap: 10px;
-    padding: 4px 10px;
-  }
 }
 </style>
